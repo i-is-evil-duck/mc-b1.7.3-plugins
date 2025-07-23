@@ -27,6 +27,11 @@
     <scope>system</scope>
     <systemPath>${project.basedir}/lib/craftbukkit.jar</systemPath>
   </dependency>
+  <dependency>
+    <groupId>org.yaml</groupId>
+    <artifactId>snakeyaml</artifactId>
+    <version>1.28</version>
+  </dependency>
 </dependencies>
 
 
