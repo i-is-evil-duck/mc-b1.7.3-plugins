@@ -11,26 +11,28 @@ import org.yaml.snakeyaml.Yaml;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.InputStream;
 import java.io.FileWriter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.io.InputStream;
+import java.util.*;
 
 public class DeathMessagesPlugin extends JavaPlugin {
 
     private final Random random = new Random();
-    private List<String> messages = new ArrayList<String>();
+    private final List<String> defaultMessages = new ArrayList<String>();
+    private final Map<String, List<String>> playerMessages = new HashMap<String, List<String>>();
 
     private final EntityListener entityListener = new EntityListener() {
         @Override
         public void onEntityDeath(EntityDeathEvent event) {
-            if (event.getEntity() instanceof Player && messages != null && !messages.isEmpty()) {
+            if (event.getEntity() instanceof Player) {
                 Player player = (Player) event.getEntity();
-                String randomMessage = messages.get(random.nextInt(messages.size()));
-                String message = player.getName() + randomMessage;
-                getServer().broadcastMessage(message);
+                String playerName = player.getName().toLowerCase();
+
+                List<String> chosenMessages = playerMessages.getOrDefault(playerName, defaultMessages);
+                if (chosenMessages == null || chosenMessages.isEmpty()) return;
+
+                String msg = chosenMessages.get(random.nextInt(chosenMessages.size()));
+                getServer().broadcastMessage(player.getName() + msg);
             }
         }
     };
@@ -61,13 +63,21 @@ public class DeathMessagesPlugin extends JavaPlugin {
             File configFile = new File(folder, "config.yml");
             if (!configFile.exists()) {
                 FileWriter writer = new FileWriter(configFile);
-                writer.write("death-messages:\n");
+                writer.write("default-messages:\n");
                 writer.write("  - \" has died! RIP.\"\n");
                 writer.write("  - \" died LMFAOO\"\n");
                 writer.write("  - \" killed them self\"\n");
                 writer.write("  - \" died in a hole\"\n");
                 writer.write("  - \" jumped\"\n");
                 writer.write("  - \" did a Epstein\"\n");
+                writer.write("\n");
+                writer.write("players:\n");
+                writer.write("  mikey:\n");
+                writer.write("    - \" slipped on a banana\"\n");
+                writer.write("    - \" farted too hard\"\n");
+                writer.write("    - \" has died! RIP.\"\n");
+                writer.write("    - \" did a Epstein\"\n");
+                writer.write("    - \" tripped over their ego\"\n");
                 writer.close();
             }
         } catch (Exception e) {
@@ -83,27 +93,52 @@ public class DeathMessagesPlugin extends JavaPlugin {
             InputStream input = new FileInputStream(configFile);
             Yaml yaml = new Yaml();
             Object rawData = yaml.load(input);
+            input.close();
+
             if (!(rawData instanceof Map)) {
                 System.out.println("[DeathMessages] Invalid config format.");
                 return;
             }
-            Map<?, ?> rawMap = (Map<?, ?>) rawData;
-            Object listObj = rawMap.get("death-messages");
 
-            if (listObj instanceof List<?>) {
-                for (Object o : (List<?>) listObj) {
+            Map<?, ?> root = (Map<?, ?>) rawData;
+
+            // Load default messages
+            Object defMsgObj = root.get("default-messages");
+            if (defMsgObj instanceof List<?>) {
+                for (Object o : (List<?>) defMsgObj) {
                     if (o instanceof String) {
-                        messages.add((String) o);
+                        defaultMessages.add((String) o);
                     }
                 }
             }
 
-            if (messages.isEmpty()) {
-                System.out.println("[DeathMessages] No messages found in config.");
+            // Load per-player messages
+            Object playersObj = root.get("players");
+            if (playersObj instanceof Map<?, ?>) {
+                Map<?, ?> playerMap = (Map<?, ?>) playersObj;
+                for (Map.Entry<?, ?> entry : playerMap.entrySet()) {
+                    String playerName = entry.getKey().toString().toLowerCase();
+                    Object msgList = entry.getValue();
+                    if (msgList instanceof List<?>) {
+                        List<String> customList = new ArrayList<String>();
+                        for (Object o : (List<?>) msgList) {
+                            if (o instanceof String) {
+                                customList.add((String) o);
+                            }
+                        }
+                        if (!customList.isEmpty()) {
+                            playerMessages.put(playerName, customList);
+                        }
+                    }
+                }
+            }
+
+            if (defaultMessages.isEmpty()) {
+                System.out.println("[DeathMessages] Warning: No default messages found!");
             }
 
         } catch (Exception e) {
-            System.out.println("[DeathMessages] Failed to load messages: " + e.getMessage());
+            System.out.println("[DeathMessages] Failed to load config: " + e.getMessage());
         }
     }
 }
